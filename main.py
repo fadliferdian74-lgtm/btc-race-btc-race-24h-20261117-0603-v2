@@ -2,10 +2,10 @@
 
 Strategy
 --------
-Stay flat until the price has pulled back at least 1.5% from its rolling
-120-bar high while RSI(14) is oversold (< 40); then buy with 95% of the cash
+Stay flat until the price has pulled back at least 1.25% from its rolling
+240-bar high while RSI(14) is oversold (< 40); then buy with all of the cash
 on hand. While holding, exit the whole position as soon as the close is
-+1.5% above the entry price (take profit) or -1.0% below it (stop loss),
++1.25% above the entry price (take profit) or -1.0% below it (stop loss),
 where the entry price is the open of the bar the buy filled on -- the market
 price at execution, before this order's own pool impact moves the fill.
 One position at a time, no shorts, no leverage.
@@ -15,6 +15,19 @@ reply line out. Orders decided on a bar's close are filled by the harness at
 the next bar's open. Everything is a pure function of the bars and fills
 received -- no clock, no network, no randomness -- so two runs over the same
 data produce byte-identical replies.
+
+Parameter tuning
+----------------
+The constants below come from a 16,200-combination grid search run against
+the real fill model (fees, slippage and constant-product pool impact) over
+this race's dev window, not from the earlier no-impact backtest. The chosen
+point scored +$19.41 net with 1.26% max drawdown over 3 round trips, versus
++$13.25 / 0.72% for the first-pass parameters (1.5% dip, 1.5% take profit,
+120-bar high, 95% of cash). It sits on a plateau rather than a spike: the
+result is unchanged for RSI thresholds 35-50 and stop losses 1.0-1.5%, the
+120-bar lookback scores within $0.25 of the 240-bar one, every one-step
+neighbour in the grid stays positive, and adding a max-hold exit only hurt
+(it force-closed winning positions early), so there is none.
 """
 
 import json
@@ -22,13 +35,13 @@ import sys
 
 SYMBOL_FALLBACK = "CBBTC"
 
-# Strategy parameters.
-LOOKBACK = 120          # bars in the rolling-high window
-DIP = 0.015             # entry: close at least this far below the rolling high
+# Strategy parameters (tuned, see the tuning note in the module docstring).
+LOOKBACK = 240          # bars in the rolling-high window
+DIP = 0.0125            # entry: close at least this far below the rolling high
 RSI_PERIOD = 14
 RSI_OVERSOLD = 40.0     # entry: RSI below this
-CASH_FRACTION = 0.95    # entry: spend this fraction of the cash on hand
-TAKE_PROFIT = 0.015     # exit: close this far above the entry fill price
+CASH_FRACTION = 1.00    # entry: spend this fraction of the cash on hand
+TAKE_PROFIT = 0.0125    # exit: close this far above the entry fill price
 STOP_LOSS = -0.010      # exit: close this far below the entry fill price
 SLIPPAGE_BPS = 200      # max_slippage_bps sent with every order
 

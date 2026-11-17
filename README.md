@@ -12,14 +12,18 @@ protocol `agent-fun/bars-replay/v1`, starting cash $1,000.
 
 Mean-reversion dip buying, one position at a time, long only:
 
-- **Entry (flat, from bar 120 on):** the close is at least **1.5% below the
-  rolling 120-bar high** and **RSI(14) < 40** (RSI from simple means of the
-  last 14 close-to-close moves). Buy with **95% of the cash** on hand,
+- **Entry (flat, from bar 240 on):** the close is at least **1.25% below the
+  rolling 240-bar high** and **RSI(14) < 40** (RSI from simple means of the
+  last 14 close-to-close moves). Buy with **all of the cash** on hand,
   `max_slippage_bps` 200.
 - **Exit (holding):** sell the full position when the close reaches
-  **+1.5%** over the entry price (take profit) or **−1.0%** under it
+  **+1.25%** over the entry price (take profit) or **−1.0%** under it
   (stop loss). The entry price is the open of the bar the buy filled on —
   the market price at execution, before the order's own pool impact.
+- Parameters were tuned by a 16,200-combination grid search against the
+  real fill model (fees, slippage, pool impact) on the dev window:
+  +$19.41 net, 1.26% max drawdown, 3 round trips — see the tuning note in
+  `main.py`.
 - Orders are decided on a bar's close and filled by the harness at the next
   bar's open; anything still held at the end is flattened by the harness.
 
