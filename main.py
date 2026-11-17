@@ -10,6 +10,10 @@ it (stop loss), the entry price being the open of the bar the buy filled
 on -- the market price at execution, before this order's own pool impact
 moves the fill print.
 
+Entry confirmation (both legs): a signal only becomes an order when its
+bar closes UP -- the close above the bar's own open. Neither leg buys into
+a bar that is still falling; both wait for the first bar the buyers win.
+
 Regime defence (why the dip leg may only lose once): repeated dip buys are
 what a falling window eats -- measured on the 15 Nov dev window, the dip
 leg alone round-trips a dozen times down the slope for about -$90. So the
@@ -20,9 +24,9 @@ traps that re-arming walks into (also measured, and worse).
 
 Capitulation leg (the falling-window earner): if the close falls at least
 7.5% below the session high (the running high of all closes so far) with
-RSI(14) < 40, buy with all of the cash on hand and ride the capitulation
-bounce: exit at +4.0% / -1.5% from the entry price, or after 120 bars,
-whichever comes first. It fires at most once per capitulation episode --
+RSI(14) < 40, on a bar that closes up, buy with all of the cash on hand
+and ride the capitulation bounce: exit at +4.0% / -1.5% from the entry
+price, or after 120 bars, whichever comes first. It fires at most once per capitulation episode --
 after it exits, it re-arms only when the close is back above the trigger
 line. A 20% drawdown from the peak equity halts all new entries (exits
 always continue). The exit band and size come from a 1,440-combination
@@ -39,12 +43,12 @@ replies.
 
 Measured on the real fill model (fees, slippage, pool impact)
 -------------------------------------------------------------
-This race's dev window (calm, BTC +0.49%): +$20.59, max DD 0.98% -- two
-dip-leg take-profits (+$9.45, +$9.76) and a third dip position flattened
-at the window's end (+$1.37); the defence never engages, the capitulation
-leg never fires. The 15 Nov dev window (falling, BTC -4.0%): +$22.11, max
-DD 2.01% -- one dip stop (-$13.13) switches the dip leg off, then the
-capitulation leg catches the bottom (+$35.24). The undefended dip leg
+This race's dev window (calm, BTC +0.49%): +$21.34, max DD 0.77% -- two
+dip-leg take-profits (+$9.32, +$9.52) and a third dip position flattened
+at the window's end (+$2.50); the defence never engages, the capitulation
+leg never fires. The 15 Nov dev window (falling, BTC -4.0%): +$22.18, max
+DD 1.52% -- one dip stop (-$13.58) switches the dip leg off, then the
+capitulation leg catches the bottom (+$35.76). The undefended dip leg
 scores -$89.85 on that window; capitulation alone scores $0.00 on the
 calm one (it never fires, which also fails this race's dev gate).
 
@@ -59,6 +63,24 @@ rides the single observed bounces closer to their exact tops and falls
 off a cliff one step further out, and a 7.0-7.25% capitulation trigger
 wins on the one observed episode but loses across the full parameter
 grid (median +$10.12 vs +$13.28 at 7.5%).
+
+Round-4 (structural variants, same acceptance rule): the one change that
+raises the two-window average AND the worst window is the up-close entry
+confirmation described above -- it is parameter-free (no fitted level),
+it delays the capitulation entry by a few bars to a better fill, and it
+lowers max drawdown on both windows (0.98% -> 0.77% calm, 2.01% -> 1.52%
+falling). Measured and rejected: scale-out exits and a trailing stop for
+the capitulation leg, whose entire gain on the falling window came from
+NOT exiting at +4.0% on the single observed bounce (the trailing stop
+never even triggered -- the position simply rode to the 120-bar hold
+limit; the scale-out remainder's +5% step sits exactly inside that
+bounce's top and falls off a cliff at +6%) -- the same peak-riding the
+earlier rounds refused. Also rejected: RSI period/smoothing variants
+(non-binding -- no decision changes on either window), volatility-scaled
+dip depth (calm window drops to +$16.51..+$18.76), capitulation entry
+delays of 5-30 bars (the 15+ bar delays miss the episode entirely), and
+confirming the dip entry against the previous close instead of the bar's
+own open (falling window worsens).
 """
 
 import json
