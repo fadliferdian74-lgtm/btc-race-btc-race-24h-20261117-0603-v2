@@ -20,12 +20,16 @@ traps that re-arming walks into (also measured, and worse).
 
 Capitulation leg (the falling-window earner): if the close falls at least
 7.5% below the session high (the running high of all closes so far) with
-RSI(14) < 40, buy with 95% of the cash on hand and ride the capitulation
-bounce: exit at +3.0% / -1.5% from the entry price, or after 120 bars,
+RSI(14) < 40, buy with all of the cash on hand and ride the capitulation
+bounce: exit at +4.0% / -1.5% from the entry price, or after 120 bars,
 whichever comes first. It fires at most once per capitulation episode --
 after it exits, it re-arms only when the close is back above the trigger
 line. A 20% drawdown from the peak equity halts all new entries (exits
-always continue).
+always continue). The exit band and size come from a 1,440-combination
+cross-regime grid on the real fill model: at the 7.5% trigger the
+take-profit ramp is smooth (3.0% / 3.5% / 4.0% bank +$10.91 / +$17.12 /
++$19.37 of falling-window PnL at full size), while a 6.5% trigger is a
+trap (median -$34.95 across its grid) and 8.0% never fired at all.
 
 One position at a time, no shorts, no leverage. Orders decided on a bar's
 close are filled by the harness at the next bar's open. Everything is a
@@ -37,9 +41,9 @@ Measured on the real fill model (fees, slippage, pool impact)
 -------------------------------------------------------------
 This race's dev window (calm, BTC +0.49%): +$19.41, max DD 1.26% -- the
 dip leg's two take-profits; the defence never engages, the capitulation
-leg never fires. The 15 Nov dev window (falling, BTC -4.0%): +$9.75, max
-DD 2.45% -- one dip stop (-$15.78) switches the dip leg off, then the
-capitulation leg catches the bottom (+$25.53). The undefended dip leg
+leg never fires. The 15 Nov dev window (falling, BTC -4.0%): +$19.37, max
+DD 2.49% -- one dip stop (-$15.78) switches the dip leg off, then the
+capitulation leg catches the bottom (+$35.15). The undefended dip leg
 scores -$89.85 on that window; capitulation alone scores $0.00 on the
 calm one (it never fires, which also fails this race's dev gate).
 """

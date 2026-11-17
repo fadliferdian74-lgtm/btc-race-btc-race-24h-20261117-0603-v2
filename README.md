@@ -29,13 +29,16 @@ which leg is allowed to trade depends on the regime the market is in:
   for the rest of the session — one full-size loss is the whole tuition,
   and it is never re-armed.
 - **Capitulation leg (falling windows).** If the close falls at least
-  **7.5% below the session high** with RSI(14) < 40, buy with **95% of the
-  cash** and exit at **+3.0% / −1.5%** from the entry price or after
+  **7.5% below the session high** with RSI(14) < 40, buy with **all of the
+  cash** and exit at **+4.0% / −1.5%** from the entry price or after
   **120 bars**. It fires at most once per capitulation episode, and a 20%
-  drawdown from peak equity halts all new entries.
+  drawdown from peak equity halts all new entries. (Exit band and size
+  set by a 1,440-combination cross-regime grid: the take-profit ramp at
+  the 7.5% trigger is a smooth plateau, while a 6.5% trigger is a trap
+  and 8.0% never fires on the falling window.)
 - Cross-regime check on the real fill model: calm dev window **+$19.41**
   (dip leg only, the defence never engages); falling dev window
-  **+$9.75** (one dip stop, then the capitulation leg catches the bottom)
+  **+$19.37** (one dip stop, then the capitulation leg catches the bottom)
   where the undefended dip leg loses $89.85 and capitulation alone earns
   $0 on the calm window.
 - Orders are decided on a bar's close and filled by the harness at the next
