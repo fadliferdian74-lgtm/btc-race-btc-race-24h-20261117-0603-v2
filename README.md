@@ -17,8 +17,9 @@ Mean-reversion dip buying, one position at a time, long only:
   last 14 close-to-close moves). Buy with **95% of the cash** on hand,
   `max_slippage_bps` 200.
 - **Exit (holding):** sell the full position when the close reaches
-  **+1.5%** over the buy fill price (take profit) or **−1.0%** under it
-  (stop loss).
+  **+1.5%** over the entry price (take profit) or **−1.0%** under it
+  (stop loss). The entry price is the open of the bar the buy filled on —
+  the market price at execution, before the order's own pool impact.
 - Orders are decided on a bar's close and filled by the harness at the next
   bar's open; anything still held at the end is flattened by the harness.
 

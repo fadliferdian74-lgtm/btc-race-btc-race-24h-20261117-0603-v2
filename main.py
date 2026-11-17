@@ -5,7 +5,9 @@ Strategy
 Stay flat until the price has pulled back at least 1.5% from its rolling
 120-bar high while RSI(14) is oversold (< 40); then buy with 95% of the cash
 on hand. While holding, exit the whole position as soon as the close is
-+1.5% above the fill price (take profit) or -1.0% below it (stop loss).
++1.5% above the entry price (take profit) or -1.0% below it (stop loss),
+where the entry price is the open of the bar the buy filled on -- the market
+price at execution, before this order's own pool impact moves the fill.
 One position at a time, no shorts, no leverage.
 
 The bot speaks the bars-replay protocol itself: one JSON line in, one JSON
@@ -46,23 +48,18 @@ class DipBuyer:
 
     def __init__(self):
         self.symbol = SYMBOL_FALLBACK
-        self.price_scale = 5
-        self.qty_scale = 8
-        self.quote_scale = 6
         self.warmup_bars = 0
         self.closes = []        # raw closes (integers at the symbol's price scale)
+        self.last_open = None   # raw open of the most recent bar
         self.cash = 0           # quote units, refreshed from every batch's account
         self.qty = 0            # asset units currently held (0 = flat)
-        self.entry_price = None # raw price of the open position's buy fill
+        self.entry_price = None # raw open of the bar the open position filled on
         self.order_count = 0
 
     def on_hello(self, hello):
         symbols = hello.get("symbols") or []
         if symbols:
             self.symbol = symbols[0]["symbol"]
-            self.price_scale = int(symbols[0]["price_scale"])
-            self.qty_scale = int(symbols[0]["qty_scale"])
-        self.quote_scale = int(hello["capital"]["quote_scale"])
         self.warmup_bars = int(hello.get("warmup_bars", 0))
         self.cash = int(hello["capital"]["quote_units"])
 
@@ -75,7 +72,9 @@ class DipBuyer:
             if fill.get("status") != "filled":
                 continue
             if fill.get("side") == "buy":
-                self.entry_price = int(fill["price"])
+                # The fill happened at this batch's bar's open; that open is
+                # the entry price (the fill's own print includes our impact).
+                self.entry_price = self.last_open
             elif fill.get("side") == "sell":
                 self.entry_price = None
 
@@ -86,20 +85,18 @@ class DipBuyer:
             if pos["symbol"] == self.symbol:
                 self.qty = int(pos["qty"])
                 if self.qty > 0 and self.entry_price is None:
-                    # Fall back to the position's cost basis (fees included)
-                    # so the exit band still has an entry price to measure
-                    # against: cost = qty * price * 10^quote / 10^(qty+price).
-                    cost = int(pos["cost_quote_units"])
-                    span = self.qty_scale + self.price_scale - self.quote_scale
-                    self.entry_price = cost * 10 ** span // self.qty
+                    # The position appeared with this batch, so it filled at
+                    # this bar's open even if its fill line was not seen.
+                    self.entry_price = self.last_open
 
     def on_batch(self, batch):
         """Return the orders decided on this batch's closing bar."""
-        self._note_fills(batch.get("fills", []))
-        self._note_account(batch["account"])
         for bar in batch["bars"]:
             if bar["symbol"] == self.symbol:
+                self.last_open = int(bar["o"])
                 self.closes.append(int(bar["c"]))
+        self._note_fills(batch.get("fills", []))
+        self._note_account(batch["account"])
         if not self.closes:
             return []
         if self.warmup_bars and batch["seq"] < self.warmup_bars:
