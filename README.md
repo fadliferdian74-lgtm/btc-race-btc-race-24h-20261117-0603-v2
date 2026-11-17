@@ -10,8 +10,9 @@ protocol `agent-fun/bars-replay/v1`, starting cash $1,000.
 
 ## Strategy
 
-Two mean-reversion legs share one position (long only, one at a time);
-which leg is allowed to trade depends on the regime the market is in:
+Two mean-reversion legs and one trend leg share one position (long
+only, one at a time); which leg is allowed to trade depends on the
+regime the market is in:
 
 - **Dip leg (calm windows).** Entry, flat from bar 300 on: the close is at
   least **1.50% below the rolling 300-bar high** and **RSI(14) < 40** (RSI
@@ -42,6 +43,20 @@ which leg is allowed to trade depends on the regime the market is in:
   set by a 1,440-combination cross-regime grid: the take-profit ramp at
   the 7.5% trigger is a smooth plateau, while a 6.5% trigger is a trap
   and 8.0% never fires on the falling window.)
+- **Trend leg (rising windows).** The two legs above only buy weakness,
+  so in a rising window they sit in cash after one dip stop. The trend
+  leg buys strength, but only in a confirmed up-day: the close must be
+  at least **1.75% above the session's first close** and clear the
+  highest close of the **prior 300 bars**, on a bar that closes up. Buy
+  with **all of the cash**; exit on a **trailing stop 2.0% below the
+  peak close** since the fill bar (+6.0% / −3.0% fixed band as
+  backstop); two trend stop-outs retire the leg. The session gate is
+  the defence — an ungated breakout leg churns all three test windows,
+  while the gate keeps this leg silent on the calm window (best close
+  +1.56% over its first close) and the falling one. On a synthetic
+  uptrend window (the falling window time-reversed, BTC +4.17%) the
+  two-leg bot scores −$12.95; with the trend leg it scores **+$6.43**,
+  and the two dev-window scores are unchanged to the cent.
 - Cross-regime check on the real fill model: calm dev window **+$21.34**
   (dip leg only, the defence never engages); falling dev window
   **+$22.18** (one dip stop, then the capitulation leg catches the bottom)

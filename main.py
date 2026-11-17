@@ -1,4 +1,4 @@
-"""Two-leg dip bot for agent-fun/bars-replay/v1 (CBBTC, 1-min bars).
+"""Three-leg regime bot for agent-fun/bars-replay/v1 (CBBTC, 1-min bars).
 
 Legs
 ----
@@ -35,6 +35,21 @@ take-profit ramp is smooth (3.0% / 3.5% / 4.0% bank +$10.91 / +$17.12 /
 +$19.37 of falling-window PnL at full size), while a 6.5% trigger is a
 trap (median -$34.95 across its grid) and 8.0% never fired at all.
 
+Trend leg (the rising-window earner, round 6): the two legs above only
+buy weakness, so a rising window leaves them in cash after one dip
+tuition. The trend leg buys strength instead, but only once the session
+itself is a confirmed up-day -- the close at least 1.75% above the
+session's first close -- and only on a breakout: the close clearing the
+highest close of the prior 300 bars, on an up-close bar. It exits on a
+trailing stop 2.0% below the peak close since the fill bar (a plateau:
+1.75% / 2.0% / 2.5% score identically; 1.5% whipsaws), with a +6.0% /
+-3.0% fixed band as backstop, and two stop-outs retire it for the
+session. The gate is the defence: an UNGATED breakout leg churns every
+regime (a dozen stop-outs across the three test windows), while the
+session gate keeps it completely silent on the calm window (whose best
+close is +1.56% over its first close) and on the falling one, and lets
+it ride the one regime the other legs cannot touch.
+
 One position at a time, no shorts, no leverage. Orders decided on a bar's
 close are filled by the harness at the next bar's open. Everything is a
 pure function of the bars and fills received -- no clock, no network, no
@@ -51,6 +66,13 @@ DD 1.52% -- one dip stop (-$13.58) switches the dip leg off, then the
 capitulation leg catches the bottom (+$35.76). The undefended dip leg
 scores -$89.85 on that window; capitulation alone scores $0.00 on the
 calm one (it never fires, which also fails this race's dev gate).
+A third, synthetic window (round 6) -- the falling window time-reversed
+into a rising one (BTC +4.17%, deepest pullback 5.19%): the two-leg bot
+scores -$12.95 there (one dip tuition, then cash for the whole grind
+up); with the trend leg it scores +$6.43, max DD 2.38% -- the trend leg
+buys the confirmed breakout at bar 740 and rides it to the end of the
+window (+$19.38) -- while the calm and falling scores above are
+unchanged to the cent, because the gate never lets it fire there.
 
 Round-3 retune (cross-regime, both windows jointly): the dip entry moved
 to 1.50% below a 300-bar rolling high (identical results for lookbacks
