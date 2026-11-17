@@ -61,8 +61,8 @@ STOP_LOSS = -0.010      # exit: close this far below the entry fill price
 
 # Capitulation-leg parameters.
 CAP_DIP = 0.075         # entry: close at least this far below the session high
-CAP_CASH_FRACTION = 0.95
-CAP_TAKE_PROFIT = 0.03
+CAP_CASH_FRACTION = 1.00
+CAP_TAKE_PROFIT = 0.04
 CAP_STOP_LOSS = -0.015
 CAP_MAX_HOLD = 120      # bars since the fill bar
 
