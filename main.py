@@ -250,9 +250,13 @@ class TwoLegDipBot:
             return []
 
         # Capitulation leg first: the deepest signal wins the one position.
+        # Confirmation (both legs): the signal bar must close UP -- close
+        # above its own open, which is self.last_open at decision time --
+        # so the bot never buys into a bar that is still falling.
         if (self.cap_armed and index >= RSI_PERIOD and self.session_high > 0
                 and close <= self.session_high * (1.0 - CAP_DIP)
-                and rsi(self.closes) < RSI_OVERSOLD):
+                and rsi(self.closes) < RSI_OVERSOLD
+                and close > self.last_open):
             return self._buy("cap", CAP_CASH_FRACTION)
 
         # Dip leg, unless its one stop-out already ended it for the session.
@@ -263,6 +267,8 @@ class TwoLegDipBot:
             return []
         if rsi(self.closes) >= RSI_OVERSOLD:
             return []
+        if close <= self.last_open:
+            return []  # confirmation: wait for the first up-close bar
         return self._buy("dip", CASH_FRACTION)
 
 
