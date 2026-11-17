@@ -106,6 +106,21 @@ CAP_TAKE_PROFIT = 0.04
 CAP_STOP_LOSS = -0.015
 CAP_MAX_HOLD = 120      # bars since the fill bar
 
+# Trend-leg parameters (round 6). The leg is gated by the session itself:
+# it may only fire once the close is at least TREND_GATE above the
+# session's first close -- a confirmed up-day -- and the close breaks the
+# highest close of the prior TREND_LOOKBACK bars on an up-close bar. The
+# exit is a trailing stop below the peak close since the fill bar, with a
+# far take-profit and a wide fixed stop as backstops. Two trend stop-outs
+# retire the leg for the session.
+TREND_LOOKBACK = 300    # prior closes the entry close must clear
+TREND_GATE = 0.0175     # entry: close at least this far above the first close
+TREND_CASH_FRACTION = 1.00
+TREND_TRAIL = 0.02      # exit: close this far below the peak close since entry
+TREND_TAKE_PROFIT = 0.06
+TREND_STOP_LOSS = -0.03
+TREND_MAX_SL = 2        # trend stop-outs that retire the trend leg
+
 DD_HALT = 0.20          # stop all entries after this drawdown from peak equity
 SLIPPAGE_BPS = 200      # max_slippage_bps sent with every order
 
@@ -121,13 +136,14 @@ def rsi(closes, period=RSI_PERIOD):
 
 
 class TwoLegDipBot:
-    """Bar history, the live position, and both legs' regime state."""
+    """Bar history, the live position, and all three legs' regime state."""
 
     def __init__(self):
         self.symbol = SYMBOL_FALLBACK
         self.warmup_bars = 0
         self.closes = []         # raw closes (integers at the price scale)
         self.last_open = None    # raw open of the most recent bar
+        self.first_close = 0     # first close of the session (trend gate base)
         self.cash = 0            # quote units, refreshed from every batch
         self.qty = 0             # asset units currently held (0 = flat)
         self.start_cash = 0      # quote units at hello, for the DD halt
@@ -142,6 +158,9 @@ class TwoLegDipBot:
         # Regime state.
         self.dip_halted = False  # a dip stop-out ends the dip leg for good
         self.cap_armed = True    # one capitulation trade per episode
+        self.trend_sl_count = 0  # trend-leg stop-outs so far
+        self.trend_retired = False  # TREND_MAX_SL stop-outs retire the leg
+        self.peak_close = 0      # peak close since the live position filled
         self.halted = False      # 20% drawdown halt (entries only)
         self.peak_equity = 0.0   # quote units
         self.order_count = 0
@@ -169,12 +188,17 @@ class TwoLegDipBot:
                 self.entry_price = self.last_open
                 self.entry_index = len(self.closes) - 1
                 self.entry_leg = self.pending_leg
+                self.peak_close = 0  # reset; the peak tracker re-seeds below
             elif fill.get("side") == "sell":
                 # Apply the regime transitions the exit was sent with.
                 if self.exit_leg == "dip" and self.exit_reason == "sl":
                     self.dip_halted = True
                 if self.exit_leg == "cap":
                     self.cap_armed = False
+                if self.exit_leg == "trend" and self.exit_reason == "sl":
+                    self.trend_sl_count += 1
+                    if self.trend_sl_count >= TREND_MAX_SL:
+                        self.trend_retired = True
                 self.entry_price = None
                 self.entry_leg = None
                 self.exit_leg = None
@@ -233,6 +257,8 @@ class TwoLegDipBot:
                 self.last_open = int(bar["o"])
                 close = int(bar["c"])
                 self.closes.append(close)
+                if not self.first_close:
+                    self.first_close = close
                 if close > self.session_high:
                     self.session_high = close
         self._note_fills(batch.get("fills", []))
@@ -241,16 +267,32 @@ class TwoLegDipBot:
             return []
         close = self.closes[-1]
         self._note_equity(close)
+        # Peak close since the live position filled (trend trailing stop).
+        if self.qty > 0:
+            if close > self.peak_close:
+                self.peak_close = close
+        else:
+            self.peak_close = 0
         if self.warmup_bars and batch["seq"] < self.warmup_bars:
             return []  # orders decided on warm-up bars are rejected anyway
 
         index = len(self.closes) - 1
 
         if self.qty > 0:
-            # Holding: leave on the open leg's exit band only.
+            # Holding: leave on the open leg's exit rules only.
             if self.entry_price:
                 change = close / self.entry_price - 1.0
                 leg = self.entry_leg or "dip"
+                if leg == "trend":
+                    # Trailing stop first, then the far fixed backstops.
+                    if (self.peak_close
+                            and close <= self.peak_close * (1.0 - TREND_TRAIL)):
+                        return self._sell(leg, "trail")
+                    if change >= TREND_TAKE_PROFIT:
+                        return self._sell(leg, "tp")
+                    if change <= TREND_STOP_LOSS:
+                        return self._sell(leg, "sl")
+                    return []
                 if leg == "cap":
                     tp, sl, max_hold = CAP_TAKE_PROFIT, CAP_STOP_LOSS, CAP_MAX_HOLD
                 else:
@@ -280,6 +322,19 @@ class TwoLegDipBot:
                 and rsi(self.closes) < RSI_OVERSOLD
                 and close > self.last_open):
             return self._buy("cap", CAP_CASH_FRACTION)
+
+        # Trend leg: only in a confirmed up-day (close at least TREND_GATE
+        # above the session's first close) and only on a breakout -- the
+        # close clearing the highest close of the prior TREND_LOOKBACK
+        # bars, on an up-close bar. A breakout close is by construction
+        # within DIP of the rolling high, so this can never collide with
+        # the dip leg's signal on the same bar. Two stop-outs retire it.
+        if (not self.trend_retired and index >= TREND_LOOKBACK
+                and self.first_close > 0
+                and close >= self.first_close * (1.0 + TREND_GATE)
+                and close >= max(self.closes[-TREND_LOOKBACK - 1:-1])
+                and close > self.last_open):
+            return self._buy("trend", TREND_CASH_FRACTION)
 
         # Dip leg, unless its one stop-out already ended it for the session.
         if self.dip_halted or index < LOOKBACK:
