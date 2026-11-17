@@ -46,6 +46,9 @@ class DipBuyer:
 
     def __init__(self):
         self.symbol = SYMBOL_FALLBACK
+        self.price_scale = 5
+        self.qty_scale = 8
+        self.quote_scale = 6
         self.warmup_bars = 0
         self.closes = []        # raw closes (integers at the symbol's price scale)
         self.cash = 0           # quote units, refreshed from every batch's account
@@ -57,6 +60,9 @@ class DipBuyer:
         symbols = hello.get("symbols") or []
         if symbols:
             self.symbol = symbols[0]["symbol"]
+            self.price_scale = int(symbols[0]["price_scale"])
+            self.qty_scale = int(symbols[0]["qty_scale"])
+        self.quote_scale = int(hello["capital"]["quote_scale"])
         self.warmup_bars = int(hello.get("warmup_bars", 0))
         self.cash = int(hello["capital"]["quote_units"])
 
@@ -79,6 +85,13 @@ class DipBuyer:
         for pos in account.get("positions", []):
             if pos["symbol"] == self.symbol:
                 self.qty = int(pos["qty"])
+                if self.qty > 0 and self.entry_price is None:
+                    # Fall back to the position's cost basis (fees included)
+                    # so the exit band still has an entry price to measure
+                    # against: cost = qty * price * 10^quote / 10^(qty+price).
+                    cost = int(pos["cost_quote_units"])
+                    span = self.qty_scale + self.price_scale - self.quote_scale
+                    self.entry_price = cost * 10 ** span // self.qty
 
     def on_batch(self, batch):
         """Return the orders decided on this batch's closing bar."""
