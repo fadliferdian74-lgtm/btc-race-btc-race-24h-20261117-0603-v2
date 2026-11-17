@@ -3,12 +3,12 @@
 Legs
 ----
 Dip leg (the calm-window earner): stay flat until the close has pulled back
-at least 1.25% from its rolling 240-bar high while RSI(14) is oversold
+at least 1.50% from its rolling 300-bar high while RSI(14) is oversold
 (< 40); then buy with all of the cash on hand. Exit the whole position when
-the close is +1.25% above the entry price (take profit) or -1.0% below it
-(stop loss), the entry price being the open of the bar the buy filled on --
-the market price at execution, before this order's own pool impact moves
-the fill print.
+the close is +1.25% above the entry price (take profit) or -0.875% below
+it (stop loss), the entry price being the open of the bar the buy filled
+on -- the market price at execution, before this order's own pool impact
+moves the fill print.
 
 Regime defence (why the dip leg may only lose once): repeated dip buys are
 what a falling window eats -- measured on the 15 Nov dev window, the dip
@@ -39,13 +39,26 @@ replies.
 
 Measured on the real fill model (fees, slippage, pool impact)
 -------------------------------------------------------------
-This race's dev window (calm, BTC +0.49%): +$19.41, max DD 1.26% -- the
-dip leg's two take-profits; the defence never engages, the capitulation
-leg never fires. The 15 Nov dev window (falling, BTC -4.0%): +$19.37, max
-DD 2.49% -- one dip stop (-$15.78) switches the dip leg off, then the
-capitulation leg catches the bottom (+$35.15). The undefended dip leg
+This race's dev window (calm, BTC +0.49%): +$20.59, max DD 0.98% -- two
+dip-leg take-profits (+$9.45, +$9.76) and a third dip position flattened
+at the window's end (+$1.37); the defence never engages, the capitulation
+leg never fires. The 15 Nov dev window (falling, BTC -4.0%): +$22.11, max
+DD 2.01% -- one dip stop (-$13.13) switches the dip leg off, then the
+capitulation leg catches the bottom (+$35.24). The undefended dip leg
 scores -$89.85 on that window; capitulation alone scores $0.00 on the
 calm one (it never fires, which also fails this race's dev gate).
+
+Round-3 retune (cross-regime, both windows jointly): the dip entry moved
+to 1.50% below a 300-bar rolling high (identical results for lookbacks
+270-330, so the point is interior, not an edge) and the dip stop tightened
+to -0.875% -- on the falling window the tuition loss is cut about $1.85
+earlier, while the calm window's trades never came within 0.29 points of
+the tighter stop. Two ramps were measured and deliberately NOT taken:
+widening either take-profit (dip 1.375-1.50%, capitulation 4.25%+) only
+rides the single observed bounces closer to their exact tops and falls
+off a cliff one step further out, and a 7.0-7.25% capitulation trigger
+wins on the one observed episode but loses across the full parameter
+grid (median +$10.12 vs +$13.28 at 7.5%).
 """
 
 import json
@@ -53,15 +66,16 @@ import sys
 
 SYMBOL_FALLBACK = "CBBTC"
 
-# Dip-leg parameters (grid-tuned on this race's dev window against the
-# real fill model; the point sits on a plateau, not a spike).
-LOOKBACK = 240          # bars in the rolling-high window
-DIP = 0.0125            # entry: close at least this far below the rolling high
+# Dip-leg parameters (grid-tuned jointly on the calm and falling dev
+# windows against the real fill model; the point sits on a plateau, not
+# a spike -- see the round-3 note in the module docstring).
+LOOKBACK = 300          # bars in the rolling-high window
+DIP = 0.015             # entry: close at least this far below the rolling high
 RSI_PERIOD = 14
 RSI_OVERSOLD = 40.0     # entry: RSI below this
 CASH_FRACTION = 1.00    # entry: spend this fraction of the cash on hand
 TAKE_PROFIT = 0.0125    # exit: close this far above the entry fill price
-STOP_LOSS = -0.010      # exit: close this far below the entry fill price
+STOP_LOSS = -0.00875    # exit: close this far below the entry fill price
 
 # Capitulation-leg parameters.
 CAP_DIP = 0.075         # entry: close at least this far below the session high
